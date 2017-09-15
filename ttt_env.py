@@ -23,27 +23,37 @@ class TicTacToeEnvironment:
         self.__grid__ = grid_flattened.reshape((3, 3))
 
         winner = self.__check_win__()
+        grid_copy = np.copy(self.__grid__)
         if not winner:
-            transition = [self.__grid__, 0, False]
+            transition = [grid_copy, 0, False]
         elif winner == 1:
-            transition = [self.__grid__, -5, True]
+            transition = [grid_copy, -5, True]
         elif winner == 2:
-            transition = [self.__grid__, 5, True]
+            transition = [grid_copy, 5, True]
         elif winner == 3:
-            transition = [self.__grid__, -1, True]
+            transition = [grid_copy, -1, True]
 
-        if transition[2] == True:
+        if transition[2] is True:
             self.__needs_reset = True
 
         return transition
 
     def step_sample(self):
-        return np.random.choice(np.where(self.__grid__ == 0)[0])
+        return np.random.choice(np.where(self.__grid__.flatten() == 0)[0])
+
+    def can_place_at(self, idx):
+        if self.__grid__.flatten()[idx] == 0:
+            return True
+        else:
+            return False
+
+    def is_circles_turn(self):
+        return self.__circles_turn__
 
     def reset(self):
         self.__init__()
         self.__needs_reset = False
-        return self.__grid__
+        return np.copy(self.__grid__)
 
     def render(self):
         print(self.__grid__)
