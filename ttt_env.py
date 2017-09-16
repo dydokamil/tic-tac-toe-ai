@@ -41,6 +41,9 @@ class TicTacToeEnvironment:
     def step_sample(self):
         return np.random.choice(np.where(self.__grid__.flatten() == 0)[0])
 
+    def get_state(self):
+        return np.copy(self.__grid__)
+
     def can_place_at(self, idx):
         if self.__grid__.flatten()[idx] == 0:
             return True
