@@ -102,6 +102,7 @@ def memorize_transition(s, a, s_prime):
 def interactive_play():
     env = TicTacToeEnvironment()
     for i in range(EPISODES):
+        print('*' * 10, "Game", i + 1, '*' * 10)
         s = env.reset()
         env.render()
         terminated = False
@@ -118,6 +119,12 @@ def interactive_play():
             if not terminated:
                 s = s_prime
             step += 1
+        if r == 5:
+            print("You lost.")
+        elif r == -5:
+            print("You won.")
+        elif r == -1:
+            print("Draw.")
 
 
 if __name__ == '__main__':
