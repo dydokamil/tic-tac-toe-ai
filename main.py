@@ -1,3 +1,6 @@
+import os
+import pickle
+
 import numpy as np
 
 from ttt_env import TicTacToeEnvironment
@@ -8,6 +11,7 @@ EPISODES = 100000
 ALPHA = .1
 GAMMA = .5
 D = []
+DUMP_FILE = 'qtable.p'
 
 
 def state_present(state):
@@ -44,18 +48,27 @@ def get_best_action(state, environment):
     raise RuntimeError("PANIC!")
 
 
-def update_policy(s, a, r, s_prime, terminated):
-    # TODO implement reward discount
-    pi = get_policy(s)  # pi[a] == Q(s, a)
-    pi_prime = get_policy(s_prime)
-    max_a_prime = np.max(pi_prime)
+def discount_rewards(r, length):
+    discounted_r = np.zeros(length)
+    for t in range(length):
+        discounted_r[t] = r * GAMMA ** t
+    return discounted_r[::-1]
 
-    if terminated:
-        pi[a] = r
-    else:
+
+def update_policy(r):
+    global D
+    dd = np.asarray(D)
+    discounted = discount_rewards(r, len(dd))
+
+    for (s, a, s_prime), r in zip(dd, discounted):
+        pi = get_policy(s)  # pi[a] == Q(s, a)
+        pi_prime = get_policy(s_prime)
+        max_a_prime = np.max(pi_prime)
+
         pi[a] += ALPHA * (r + max_a_prime - pi[a])
+        Q[str(s)] = pi
 
-    Q[str(s)] = pi
+    D = []
 
 
 def q_learning_play():
@@ -66,12 +79,24 @@ def q_learning_play():
         terminated = False
         while not terminated:
             if env.is_circles_turn():
-                _, _, terminated = env.step(env.step_sample())
+                s_prime, r, terminated = env.step(env.step_sample())
             else:
                 s = env.get_state()
                 a = get_best_action(s, env)
                 s_prime, r, terminated = env.step(a)
-                update_policy(s, a, r, s_prime, terminated)
+                memorize_transition(s, a, s_prime)
+
+        update_policy(r)
+    save_q_table()
+
+
+def save_q_table():
+    print("Saving the model...")
+    pkl = pickle.dump(Q, open(DUMP_FILE, 'wb'))
+
+
+def memorize_transition(s, a, s_prime):
+    D.append([s, a, s_prime])
 
 
 def interactive_play():
@@ -85,10 +110,7 @@ def interactive_play():
             if env.is_circles_turn():
                 a = int(input("Choose your action (0-8): "))
             else:
-                if not state_present(s):
-                    print("Guessing")
-                else:
-                    print(get_policy(s))
+                print("Thinking...")
                 a = get_best_action(s, env)
 
             s_prime, r, terminated = env.step(a)
@@ -99,8 +121,12 @@ def interactive_play():
 
 
 if __name__ == '__main__':
-    # random_play()
-    print("Training the model...")
-    q_learning_play()
+    if os.path.isfile(DUMP_FILE):
+        print("Loading a saved model...")
+        Q = pickle.load(open(DUMP_FILE, 'rb'))
+    else:
+        print("Training the model...")
+        q_learning_play()
+
     print("Now you go!")
     interactive_play()
