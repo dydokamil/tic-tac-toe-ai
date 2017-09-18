@@ -59,7 +59,14 @@ class TicTacToeEnvironment:
         return np.copy(self.__grid__)
 
     def render(self):
-        print(self.__grid__)
+        circles_squares = np.copy(self.__grid__).astype(str)
+        circles_squares[np.where(circles_squares == '0.0')] = '#'
+        circles_squares[np.where(circles_squares == '1.0')] = 'x'
+        circles_squares[np.where(circles_squares == '2.0')] = 'o'
+        for row in circles_squares:
+            for element in row:
+                print(element, ' ', end='')
+            print()
 
     def __check_win__(self):
         if np.any(np.all(self.__grid__ == 1, axis=1)) or \
