@@ -2,10 +2,11 @@ import numpy as np
 
 
 class TicTacToeEnvironment:
-    def __init__(self):
+    def __init__(self, random_start=False):
         self.__grid__ = np.zeros((3, 3))
         self.__circles_turn__ = True
         self.__needs_reset = True
+        self.__random_start__ = random_start
 
     def step(self, action):
         """Draw a circle/cross at @action index.
@@ -56,13 +57,16 @@ class TicTacToeEnvironment:
     def reset(self):
         self.__init__()
         self.__needs_reset = False
+        self.__circles_turn__ = bool(np.random.randint(2)) \
+            if self.__random_start__ \
+            else True
         return np.copy(self.__grid__)
 
     def render(self):
         circles_squares = np.copy(self.__grid__).astype(str)
         circles_squares[np.where(circles_squares == '0.0')] = '#'
-        circles_squares[np.where(circles_squares == '1.0')] = 'x'
-        circles_squares[np.where(circles_squares == '2.0')] = 'o'
+        circles_squares[np.where(circles_squares == '1.0')] = 'o'
+        circles_squares[np.where(circles_squares == '2.0')] = 'x'
         for row in circles_squares:
             for element in row:
                 print(element, ' ', end='')

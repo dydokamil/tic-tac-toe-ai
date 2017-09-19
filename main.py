@@ -1,124 +1,92 @@
-import os
-import pickle
-
 import numpy as np
 
+from agent import Agent
 from ttt_env import TicTacToeEnvironment
 
 ACTIONS = 9
-Q = {}
 EPISODES = 100000
 ALPHA = .1
 GAMMA = .5
 D = []
-DUMP_FILE = 'qtable.p'
 
 
-def state_present(state):
-    if type(state) is not str:
-        state = str(state)
-
-    return state in Q
-
-
-def add_state(state, Q_vals=None):
-    if Q_vals is not None:
-        Q[state] = Q_vals
-    else:
-        Q[state] = np.zeros(9)
-
-
-def get_policy(state):
-    state = str(state)
-    if state_present(state):
-        return Q[state]
-
-    add_state(state)
-    return np.zeros(9)
-
-
-def get_best_action(state, environment):
-    pi = get_policy(state)
-    best_actions_sorted = np.argsort(pi)[::-1]
-
-    for a in best_actions_sorted:
-        if environment.can_place_at(a):
-            return a
-
-    raise RuntimeError("PANIC!")
-
-
-def discount_rewards(r, length):
-    discounted_r = np.zeros(length)
-    for t in range(length):
-        discounted_r[t] = r * GAMMA ** t
-    return discounted_r[::-1]
-
-
-def update_policy(r):
-    global D
-    dd = np.asarray(D)
-    discounted = discount_rewards(r, len(dd))
-
-    for (s, a, s_prime), r in zip(dd, discounted):
-        pi = get_policy(s)  # pi[a] == Q(s, a)
-        pi_prime = get_policy(s_prime)
-        max_a_prime = np.max(pi_prime)
-
-        pi[a] += ALPHA * (r + max_a_prime - pi[a])
-        Q[str(s)] = pi
-
-    D = []
-
-
-def q_learning_play():
+def q_learning_play(agent1, agent2):
     env = TicTacToeEnvironment()
+    epsilon = 1.
+    epsilon_decay = .95 / EPISODES
 
     for i in range(EPISODES):
         s = env.reset()
         terminated = False
         while not terminated:
-            if env.is_circles_turn():
-                s_prime, r, terminated = env.step(env.step_sample())
+            if np.random.rand() <= epsilon:
+                a = env.step_sample()
             else:
-                s = env.get_state()
-                a = get_best_action(s, env)
-                s_prime, r, terminated = env.step(a)
-                memorize_transition(s, a, s_prime)
+                if env.is_circles_turn():
+                    a = agent1.get_best_action(s, env)
+                else:
+                    a = agent2.get_best_action(s, env)
 
-        update_policy(r)
-    save_q_table()
+            s_prime, r, terminated = env.step(a)
+            if env.is_circles_turn():  # the state changes after a step
+                agent2.memorize_transition(s, a, s_prime)
+            else:
+                agent1.memorize_transition(s, a, s_prime)
+            s = s_prime
+
+        agent2.update_policy(r, GAMMA, ALPHA)
+        if r == 5:
+            r = -5
+        elif r == -5:
+            r = 5
+        agent1.update_policy(r, GAMMA, ALPHA)
+        epsilon -= epsilon_decay
+
+        if i % (EPISODES // 100) == 0:
+            print(f'Episode: {i}/{EPISODES}, epsilon: {epsilon}')
+
+    agent1.save_q_table()
+    agent2.save_q_table()
 
 
-def save_q_table():
-    print("Saving the model...")
-    pkl = pickle.dump(Q, open(DUMP_FILE, 'wb'))
+def interactive_play(agent1, agent2):
+    env = TicTacToeEnvironment(random_start=True)
 
-
-def memorize_transition(s, a, s_prime):
-    D.append([s, a, s_prime])
-
-
-def interactive_play():
-    env = TicTacToeEnvironment()
     for i in range(EPISODES):
+        agent = agent1 if np.random.randint(2) else agent2
+        agent_is_circles = False
+        if agent == agent1:
+            print("The agent shall begin.")
+            agent_is_circles = True
+
         print('*' * 10, "Game", i + 1, '*' * 10)
         s = env.reset()
         env.render()
         terminated = False
         step = 1
         while not terminated:
-            if env.is_circles_turn():
+            if env.is_circles_turn() and not agent_is_circles \
+                    or not env.is_circles_turn() and agent_is_circles:
                 a = int(input("Choose your action (0-8): "))
             else:
                 print("Thinking...")
-                a = get_best_action(s, env)
+                if step == 1:
+                    a = agent.get_best_action(s, env) \
+                        if np.random.randint(2) \
+                        else np.random.randint(9)
+                else:
+                    a = agent.get_best_action(s, env)
 
             s_prime, r, terminated = env.step(a)
             env.render()
             if not terminated:
                 s = s_prime
             step += 1
+
+        if agent_is_circles:
+            if abs(r) == 5:
+                r = -r
+
         if r == 5:
             print("You lost.")
         elif r == -5:
@@ -128,12 +96,12 @@ def interactive_play():
 
 
 if __name__ == '__main__':
-    if os.path.isfile(DUMP_FILE):
-        print("Loading a saved model...")
-        Q = pickle.load(open(DUMP_FILE, 'rb'))
-    else:
+    agent1 = Agent('circle_agent')
+    agent2 = Agent('cross_agent')
+
+    if not agent1.loaded or not agent2.loaded:
         print("Training the model...")
-        q_learning_play()
+        q_learning_play(agent1, agent2)
 
     print("Now you go!")
-    interactive_play()
+    interactive_play(agent1, agent2)
